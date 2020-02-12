@@ -17,10 +17,10 @@ pros::ADIEncoder LEFT_SENSOR (5, 6, true);
 
 //Motor initialize
 pros::Motor left_back(10, MOTOR_GEARSET_6, true);
-pros::Motor left_front(18, MOTOR_GEARSET_6, true);
+pros::Motor left_front(17, MOTOR_GEARSET_6, true);
 pros::Motor left_top(19, MOTOR_GEARSET_6, true);
-pros::Motor right_back(7, MOTOR_GEARSET_6);
-pros::Motor right_front(16, MOTOR_GEARSET_6);
+pros::Motor right_back(3, MOTOR_GEARSET_6);
+pros::Motor right_front(7, MOTOR_GEARSET_6);
 pros::Motor right_top(20, MOTOR_GEARSET_6);
 
 //Set drive

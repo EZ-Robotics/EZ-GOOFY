@@ -7,19 +7,19 @@ int auton;
 
 /*
 
+3 - right drive
 7 - right drive
-16 - right drive
 20 - right drive
 10 - left drive TRUE
-18 - left drive TRUE
+17 - left drive TRUE
 19 - left drive TRUE
 
 8 - tray
 
-12 - arm
+11 - arm
 
+12 - right roller TRUE
 13 - left roller
-14 - right roller TRUE
 
 
 */

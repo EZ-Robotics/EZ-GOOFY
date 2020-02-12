@@ -1,10 +1,20 @@
 #include "main.h"
 
+//Variables for tray
+// - tray uses TRAY_FAST_SPEED until it reaches TRAY_SLOW_DOWN
+// - then it uses TRAY_SLOW_DOWN until it reaches TAY_MAX and stops it from going farther
+#define TAY_MAX          4500 //Max position of tray
+#define TRAY_SLOW_DOWN   2000 //Position for the tray to go slow
+#define TRAY_SLOW_SPEED  50   //Slow speed
+#define TRAY_FAST_SPEED  127  //Fast speed
+#define TRAY_SUPER_SLOW_DOWN 3300
+#define TRAY_SUPER_SLOW_SPEED 30
+
 //Motor initialize
 pros::Motor tray(8);
-pros::ADIDigitalOut bottom_clamp(1);
-pros::ADIDigitalOut top_clamp(2);
-pros::ADIAnalogIn line_sensor(7);
+pros::ADIDigitalOut bottom_clamp(2);
+pros::ADIDigitalOut top_clamp(1);
+pros::ADIAnalogIn line_sensor(8);
 
 //Set tray
 void
@@ -49,14 +59,6 @@ set_tray_pid(int input) {
   target = input;
 }
 
-//Variables for tray
-// - tray uses tray_fast_speed until it reaches tray_slow_down
-// - then it uses tray_slow_down until it reaches tray_max and stops it from going farther
-int tray_max = 4500; //Max position of tray
-int tray_slow_down = 2100; //Position for the tray to go slow
-int tray_slow_speed = 60; //Slow speed
-int tray_fast_speed = 127; //Fast speed
-
 void
 tray_control(void*) {
   bool is_pid = false;
@@ -87,7 +89,7 @@ tray_control(void*) {
     }
 
     //Reset tray to 0
-    if (master.get_digital(DIGITAL_Y)) {
+    if (master.get_digital(DIGITAL_Y) && !check_shift()) {
       //tray_pid_task.resume();
       arm_state = 0;
       while (get_arm_sensor()>950) {
@@ -122,10 +124,12 @@ tray_control(void*) {
       set_bottom_clamp(a==1?false:true);
       if (arm_state != 1)
         set_top_clamp(a==1?false:true);
-      if (get_tray_sensor()<tray_slow_down) {
-        set_tray(tray_fast_speed);
+      if (get_tray_sensor()<TRAY_SLOW_DOWN) {
+        set_tray(TRAY_FAST_SPEED);
+      } else if (get_tray_sensor()<TRAY_SUPER_SLOW_DOWN) {
+        set_tray(TRAY_SLOW_SPEED);
       } else {
-        set_tray(tray_slow_speed);
+        set_tray(TRAY_SUPER_SLOW_SPEED);
       }
       tray_target = get_tray_sensor();
     }
@@ -153,18 +157,19 @@ tray_control(void*) {
         pros::delay(1);
       }
       set_tray(0);
-      pros::delay(100);
+      pros::delay(50);
       reset_tray_sensor();
       tray_pid_task.resume();
+      tray_target = 0;
     }
-    //Hold the tray where it is when you let go of a button, and make sure it can't go past tray_max or 0
+    //Hold the tray where it is when you let go of a button, and make sure it can't go past TAY_MAX or 0
     else {
       a=0;
       if (!is_pid) {
         tray_pid_task.resume();
         is_pid = true;
       } else {
-        tray_target = tray_target < 0 ? 0 : (tray_target > tray_max ? tray_max : tray_target);
+        tray_target = tray_target < 0 ? 0 : (tray_target > TAY_MAX ? TAY_MAX : tray_target);
         set_tray_pid(tray_target);
       }
     }

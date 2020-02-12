@@ -1,7 +1,7 @@
 #include "main.h"
 
 //Motor initialize
-pros::Motor right_roller(14, true);
+pros::Motor right_roller(12, true);
 pros::Motor left_roller(13);
 
 //Set rollers
@@ -32,12 +32,14 @@ check_shift() {
   return false;
 }
 
+bool is_intaking = false;
 bool run = false;
 int timer;
 void
 roller_control() {
   if (master.get_digital(DIGITAL_L1)) {
     set_rollers(check_shift()?-127:127);
+    is_intaking = check_shift() ? false : true;
   }
   else if (master.get_digital(DIGITAL_RIGHT)) {
     set_rollers(check_shift()?-80:80);
@@ -55,6 +57,7 @@ roller_control() {
     }
   }
   else {
+    is_intaking = false;
     if (run) {
       if (get_cube_sensor()>1900) {
         if (get_arm_sensor()<300) {

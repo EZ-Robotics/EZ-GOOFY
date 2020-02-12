@@ -1,5 +1,7 @@
 #pragma once
 
+extern bool is_intaking;
+
 void set_rollers(int input);
 
 void set_rollers_hold();
