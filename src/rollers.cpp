@@ -1,14 +1,18 @@
 #include "main.h"
 
 //Motor initialize
-pros::Motor right_roller(12, true);
-pros::Motor left_roller(13);
+pros::Motor right_roller(11, true);
+pros::Motor left_roller(15);
+pros::Motor right_roller_2(16);
+pros::Motor left_roller_2(6, true);
 
 //Set rollers
 void
 set_rollers(int input) {
   right_roller.move(input);
   left_roller.move(input);
+  right_roller_2.move(input);
+  left_roller_2.move(input);
 }
 
 //Set brake type rollers
@@ -16,11 +20,15 @@ void
 set_rollers_hold() {
   right_roller.set_brake_mode(MOTOR_BRAKE_HOLD);
   left_roller.set_brake_mode(MOTOR_BRAKE_HOLD);
+  right_roller_2.set_brake_mode(MOTOR_BRAKE_HOLD);
+  left_roller_2.set_brake_mode(MOTOR_BRAKE_HOLD);
 }
 void
 set_rollers_coast() {
   right_roller.set_brake_mode(MOTOR_BRAKE_COAST);
   left_roller.set_brake_mode(MOTOR_BRAKE_COAST);
+  right_roller_2.set_brake_mode(MOTOR_BRAKE_COAST);
+  left_roller_2.set_brake_mode(MOTOR_BRAKE_COAST);
 }
 
 //Check if shift key is pressed
@@ -42,7 +50,7 @@ roller_control() {
     is_intaking = check_shift() ? false : true;
   }
   else if (master.get_digital(DIGITAL_RIGHT)) {
-    set_rollers(check_shift()?-80:80);
+    set_rollers(check_shift()?-SLOW_ROLLER_SPEED:SLOW_ROLLER_SPEED);
   }
   else if (master.get_digital(DIGITAL_R1) || master.get_digital(DIGITAL_R2)) {
     run = true;
@@ -51,7 +59,7 @@ roller_control() {
         set_rollers(-80);
       }
       timer++;
-      if (timer > 500/20) {
+      if (timer > ROLLER_TIMEOUT/20) {
         run = false;
       }
     }
@@ -64,7 +72,7 @@ roller_control() {
           set_rollers(-80);
         }
         timer++;
-        if (timer > 500/20) {
+        if (timer > ROLLER_TIMEOUT/20) {
           run = false;
         }
       }
@@ -84,7 +92,7 @@ roller_control() {
       timer = 0;
     }
     else {
-      set_rollers(7);
+      set_rollers(PASSIVE_POWER);
       timer = 0;
     }
   }

@@ -1,28 +1,7 @@
 #include "main.h"
 
-//Variables for tray
-// - tray uses TRAY_FAST_SPEED until it reaches TRAY_SLOW_DOWN
-// - then it uses TRAY_SLOW_DOWN until it reaches TAY_MAX and stops it from going farther
-#define TAY_MAX          4500 //Max position of tray
-#define TRAY_SLOW_DOWN   2100 //Position for the tray to go slow
-#define TRAY_SLOW_SPEED  60   //Slow speed
-#define TRAY_FAST_SPEED  127  //Fast speed
-
-//Variables for arm
-// - score and descore positions for every tower height
-#define DSCORE_LOW 850
-#define SCORE_LOW  1000
-#define DSCORE_MID 1150
-#define SCORE_MID  1300
-#define SCORE_HIGH 1560
-// - the arm holds itself down to stop from raising while intaking cubes,
-// - PASSIVE_ARM_DOWN is used when the intake button is pressed, and ACTIVE_ARM_DOWN
-// - is used when the intake button is pressed
-#define PASSIVE_ARM_DOWN -10
-#define ACTIVE_ARM_DOWN  -30
-
 //Motor initialize
-pros::Motor arm(11);
+pros::Motor arm(2);
 
 //Set arm
 void
@@ -135,19 +114,6 @@ arm_control(void*) {
       //pros::delay(is_tray_at_pos()?0:200);
       //grab_cube();
       set_arm_pid(check_arm_shift()?DSCORE_LOW:SCORE_LOW);
-    }
-    //High tower position (unsure if this works lol)
-    else if (master.get_digital(DIGITAL_Y) && check_shift()) {
-      timer = 0;
-      if (!is_pid) {
-        arm_pid_task.resume();
-        is_pid = true;
-      }
-      pros::delay(arm_state==DOWN?100:0);
-      arm_state = UP;
-      //pros::delay(is_tray_at_pos()?0:200);
-      //grab_cube();
-      set_arm_pid(SCORE_HIGH);
     }
     //Bring arm and tray to 0
     else if (master.get_digital(DIGITAL_Y)) {

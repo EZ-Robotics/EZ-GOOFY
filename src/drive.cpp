@@ -16,12 +16,12 @@ pros::ADIEncoder RIGHT_SENSOR (3, 4, false);
 pros::ADIEncoder LEFT_SENSOR (5, 6, true);
 
 //Motor initialize
-pros::Motor left_back(10, MOTOR_GEARSET_6, true);
+pros::Motor left_back(19, MOTOR_GEARSET_6, true);
 pros::Motor left_front(17, MOTOR_GEARSET_6, true);
-pros::Motor left_top(19, MOTOR_GEARSET_6, true);
-pros::Motor right_back(3, MOTOR_GEARSET_6);
+pros::Motor left_top(10, MOTOR_GEARSET_6, true);
+pros::Motor right_back(20, MOTOR_GEARSET_6);
 pros::Motor right_front(7, MOTOR_GEARSET_6);
-pros::Motor right_top(20, MOTOR_GEARSET_6);
+pros::Motor right_top(3, MOTOR_GEARSET_6);
 
 //Set drive
 void
@@ -65,23 +65,25 @@ set_tank_coast() {
 
 int
 get_left_drive_sensor() {
-  //return left_back.get_position();
-  return LEFT_SENSOR.get_value();
+  return left_back.get_position();
+  //return LEFT_SENSOR.get_value();
 }
 int
 get_right_drive_sensor() {
-  //return right_back.get_position();
-  return RIGHT_SENSOR.get_value();
+  return right_back.get_position();
+  //return RIGHT_SENSOR.get_value();
 }
 void
 reset_drive_sensor() {
-  RIGHT_SENSOR.reset();
-  LEFT_SENSOR.reset();
+  left_back.set_zero_position(0);
+  right_back.set_zero_position(0);
+  //RIGHT_SENSOR.reset();
+  //LEFT_SENSOR.reset();
 }
 
 //Tick to Inch Conversion (divide ticks by tick_per_inch)
-const float wheel_size = 2.75; //3.5
-const float tick_per_rev = 360; //300 * (7/3)
+const float wheel_size = 3.5; //2.75
+const float tick_per_rev = 300 * (7/3); //360
 const float circumference = wheel_size*M_PI;
 const float tick_per_inch = (tick_per_rev/circumference);
 
@@ -90,7 +92,7 @@ float angle = 0.0;
 void
 angle_calculate_task(void*) {
   //More constants for calculating angle of robot
-  const float base_size = 5; //12.6125
+  const float base_size = 12.6125; //5
   const float base_circumference = base_size*M_PI;
   const float inch_per_deg = base_circumference/180;
   float error;
@@ -121,12 +123,12 @@ angle_pid_task(void*) {
 
     der = (error-last_error);
 
-    output = (error*angle_kp) + (der*25);
-    printf("angle %f\n", angle);
+    output = (error*angle_kp) + (der*20);
+    //printf("angle%f\n", angle);
 
     output = clip_num(output, angle_max_speed, -angle_max_speed);
 
-    set_tank(output, -output);
+    set_tank(-output, output);
 
     last_time = pros::millis();
     last_error = error;
@@ -178,30 +180,35 @@ drive_pid_task(void*) {
   int left_error, right_error, heading_error;
   int last_time, last_l_error, last_r_error, last_heading_error;
   float l_der, r_der, h_der;
-  int right_output, left_output, heading_output;;
+  int right_output, left_output, heading_output;
   long dT;
   while (true) {
+    //Time from last time this ran
     dT = pros::millis() - last_time;
 
+    //Math for P
     left_error    = l_target_encoder - get_left_drive_sensor();
     right_error   = r_target_encoder - get_right_drive_sensor();
     heading_error = heading-angle;
 
+    //Math for D
     l_der = dT==0 ? 0 : (left_error-last_l_error)/dT;
     r_der = dT==0 ? 0 : (right_error-last_r_error)/dT;
     h_der = dT==0 ? 0 : (heading_error-last_heading_error)/dT;
 
+    //Combing P and D
     left_output    = (left_error*drive_kp)  + (l_der*drive_kd);
     right_output   = (right_error*drive_kp) + (r_der*drive_kd);
     heading_output = (heading_error*5)      + (h_der*10);
 
+    //Clip the speeds to be slower
     left_output  = clip_num(left_output,  max_speed, -max_speed);
     right_output = clip_num(right_output, max_speed, -max_speed);
 
     if (pros::millis()<750) {
       set_tank(0, 0);
     } else {
-      set_tank(left_output+heading_output, right_output-heading_output);
+      set_tank(left_output-heading_output, right_output+heading_output);
     }
     //set_tank(left_output, right_output);
 

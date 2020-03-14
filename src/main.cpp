@@ -1,34 +1,71 @@
 #include "main.h"
 
-pros::ADIDigitalIn auton_select(8);
-const int BLUE = 0;
-const int RED  = 1;
+////////////////
+//  AUTON VARIABLES
+////////////////
+const int ARM_DOWN_POWER  = -40;  //Power the arm holds down at while intaking
+const int TRAY_DOWN_POWER = -20;  //Power the arm holds down at while intaking
+const int LINE_SENSOR     = 1900; //Desired value for cube to go to
+
+////////////////
+//  ARM VARIABLES
+////////////////
+// - score and descore positions for every tower height
+const int DSCORE_LOW = 850;
+const int SCORE_LOW  = 1000;
+const int DSCORE_MID = 1150;
+const int SCORE_MID  = 1300;
+const int SCORE_HIGH = 1560;
+// - the arm holds itself down to stop from raising while intaking cubes,
+// - PASSIVE_ARM_DOWN is used when the intake button is pressed, and ACTIVE_ARM_DOWN
+// - is used when the intake button is pressed
+const int PASSIVE_ARM_DOWN = -20;
+const int ACTIVE_ARM_DOWN  = -45;
+
+////////////////
+//  TRAY VARIABLES
+////////////////
+// - tray uses TRAY_FAST_SPEED until it reaches TRAY_SLOW_DOWN
+// - then it uses TRAY_SLOW_DOWN until it reaches TAY_MAX and stops it from going farther
+const int TRAY_MAX							  = 4500; //Max position of tray
+const int TRAY_SLOW_DOWN 			  = 2000; //Position for the tray to go slow
+const int TRAY_SUPER_SLOW_DOWN  = 3300; //Poisition for tray super slow
+const int TRAY_FAST_SPEED       = 127;  //Fast speed
+const int TRAY_SLOW_SPEED       = 50;   //Medium speed
+const int TRAY_SUPER_SLOW_SPEED = 30;   //Slow speed
+
+////////////////
+//  ROLLER VARIABLES
+////////////////
+const int ROLLER_TIMEOUT 		= 250; //Timeout for rollers when bringing a cube into the intake
+const int SLOW_ROLLER_SPEED = 60;  //Speed for rollers for slow intake button
+const int PASSIVE_POWER 		= 7;   //Power set to rollers when nothing is being done to hold cubes in
+
+pros::ADIAnalogIn auton_select(7);
+const int R6 = 1;
+const int R3 = 2;
+const int B3 = 3;
+const int B6 = 4;
 int auton;
-
-/*
-
-3 - right drive
-7 - right drive
-20 - right drive
-10 - left drive TRUE
-17 - left drive TRUE
-19 - left drive TRUE
-
-8 - tray
-
-11 - arm
-
-12 - right roller TRUE
-13 - left roller
-
-
-*/
 
 void initialize() {
 	pros::delay(500);
 	master.clear();
 	pros::lcd::initialize();
 	reset_drive_sensor();
+
+	if (auton_select.get_value()>0 && auton_select.get_value()<330) {
+		auton = R6;
+	}
+	else if (auton_select.get_value()>330 && auton_select.get_value()<1800) {
+		auton = R3;
+	}
+	else if (auton_select.get_value()>1800 && auton_select.get_value()<3300) {
+		auton = B3;
+	}
+	else if (auton_select.get_value()>3300 && auton_select.get_value()<4100) {
+		auton = B6;
+	}
 
 	set_tank_hold();
 
@@ -41,357 +78,381 @@ void initialize() {
 	angle_calculate.suspend();
 	angle_pid.suspend();
 	drive_pid.suspend();
-
-	auton = auton_select.get_value();
-
-	//pros::delay(500);
 }
 
 void disabled() {}
-
 void competition_initialize() {}
 
 void
-red() {
-	drive_pid.resume();
+red_6() {
+	reset_drive_sensor();
+
 	angle_calculate.resume();
-	//angle_pid.resume();
 
-	//Push preload cube forward and drive back
-	set_drive_pid(9, 0, 50, 0.5, 0.1);
+	//Hold arm and tray back
+	set_tray(TRAY_DOWN_POWER);
+	set_arm(ARM_DOWN_POWER);
+
+	//Intake and grab cubes
+	set_rollers(127);
+	set_drive_pid(36, 0, 40, 0.4, 3);
+	drive_pid.resume();
 	wait_drive();
-	pros::delay(250);
 
-	set_drive_pid(-4, 0, 50, 0.5, 0.1);
-	wait_drive();
-	pros::delay(250);
-
-	//Unfold
-	arm_pid_task.resume();
-	tray_pid_task.resume();
-	set_arm_pid(700);
-	pros::delay(1000);
-	set_arm_pid(0);
-	set_tray_pid(0);
-	arm_pid_task.suspend();
-	tray_pid_task.suspend();
-	set_tray(-30);
-	pros::delay(150);
-	set_arm(-60);
-	pros::delay(750);
-	reset_arm_sensor();
+	//Reset tray
 	set_tray(0);
-	pros::delay(100);
-	reset_tray_sensor();
-	arm_pid_task.resume();
 	tray_pid_task.resume();
+	set_tray_pid(0);
 
-	//Drive forward to grab first row
-	set_drive_pid(35, 0, 30, 0.5, 0.1);
-	set_rollers(127);
-	wait_drive();
-	pros::delay(500);
-
-	//Drive back a little to prepare for turn
-	set_drive_pid(-12, 0, 40, 0.5, 0.1);
-	set_rollers(127);
-	wait_drive();
-	pros::delay(500);
-	set_rollers(7);
-
-	//Turn
+	//Turn to grab 6th cube
 	drive_pid.suspend();
 	angle_pid.resume();
-	set_angle_pid(50, 100, 6);
+	set_angle_pid(25, 80, 6);
 	wait_turn();
-	pros::delay(500);
+	pros::delay(250);
 	angle_pid.suspend();
 
-	//Drive back to get inline with the second row
-	set_drive_pid(-33, 50, 50, 0.9, 0.1);
+	//Intake and grab cubes
+	drive_pid.resume();
+	set_rollers(127);
+	set_drive_pid(8, 25, 30, 0.4, 3);
 	drive_pid.resume();
 	wait_drive();
-	pros::delay(250);
 
-	//Turn to face second row
+	//Turn to face 0 deg
 	drive_pid.suspend();
 	angle_pid.resume();
-	set_angle_pid(0, 100, 6);
+	set_angle_pid(0, 60, 6);
 	wait_turn();
-	pros::delay(500);
+	pros::delay(250);
 	angle_pid.suspend();
 
-	//Intake half of the cubes on second row
-	set_drive_pid(17, 0, 30, 0.9, 0.1);
-	set_rollers(127);
+	//Drive back a little
 	drive_pid.resume();
-	wait_drive();
-	pros::delay(750);
+	set_drive_pid(-36, 0, 60, 0.4, 3);
 
-	//Raise arm tiny bit
-	set_arm_pid(300);
-	pros::delay(500);
-
-	//Drive in a little bit
-	set_drive_pid(7, 0, 20, 0.9, 0.1);
-	while (get_cube_sensor()>1900) {
-			set_rollers(80);
-	}
-	set_rollers(50);
-	wait_drive();
-	pros::delay(250);
-
-	//Drive back a tiny bit
-	set_drive_pid(-7, 0, 30, 0.9, 0.1);
-	wait_drive();
-	pros::delay(500);
-	set_arm_pid(0);
-	pros::delay(500);
-
-	//Drive back a tiny bit
-	set_rollers(127);
-	set_drive_pid(23, 0, 30, 0.9, 0.1);
-	wait_drive();
-	pros::delay(1500);
-
-	//Bring cubes down
-	while (get_cube_sensor()>1900) {
-			set_rollers(-40);
+	while (get_cube_sensor()>LINE_SENSOR) {
+			set_rollers(-80);
 	}
 	set_rollers(0);
 	set_bottom_clamp(true);
-	set_top_clamp(true);
 	pros::delay(150);
 
-	//Bring tray up a little
-	set_tray_pid(1500);
-	pros::delay(1500);
+	wait_drive();
+	pros::delay(250);
+	set_rollers(-7);
 
 	//Turn to face zone
 	drive_pid.suspend();
 	angle_pid.resume();
-	set_angle_pid(145, 80, 6);
+	set_angle_pid(-110, 60, 6);
 	wait_turn();
-	pros::delay(750);
+	pros::delay(250);
 	angle_pid.suspend();
 
-	//Drive to zone
-	set_drive_pid(40, 145, 50, 0.4, 3);
-	drive_pid.resume();
-	wait_drive();
-	pros::delay(500);
-
-	//Center with zone
-	set_drive_pid(12, 145, 20, 0.4, 3);
-	pros::delay(1500);
+	//Drive to the zone
+	set_tank(40, 60);
+	pros::delay(750);
+	set_tank(20, 20);
 
 	//Score stack
 	tray_pid_task.suspend();
-	while (get_tray_sensor()<2100) {
-			set_tray(127);
+	while (get_tray_sensor()<TRAY_SLOW_DOWN) {
+		set_tray(TRAY_FAST_SPEED);
 	}
-	while (get_tray_sensor()<4200){
-			set_rollers(-15);
-			set_tray(60);
+	while(get_tray_sensor()<TRAY_SUPER_SLOW_DOWN) {
+		set_tray(TRAY_SLOW_SPEED);
 	}
-	set_tray_pid(4200);
+	while(get_tray_sensor()<TRAY_MAX) {
+		set_tray(TRAY_SUPER_SLOW_SPEED);
+	}
 	tray_pid_task.resume();
+	set_tray_pid(4500);
+	set_bottom_clamp(false);
+	set_tank(-10, -10);
+	pros::delay(250);
+	set_rollers(-127);
+	pros::delay(250);
+
+	//Back up
+	set_tank(-127, -127);
+	pros::delay(250);
+	set_tray_pid(0);
+	set_tank(-10, -10);
+	pros::delay(500);
+	set_tank(0, 0);
+}
+
+void red_3() {
+	reset_drive_sensor();
+
+	angle_calculate.resume();
+
+	//Hold arm and tray back
+	set_tray(TRAY_DOWN_POWER);
+	set_arm(ARM_DOWN_POWER);
+
+	//Intake and grab cubes
+	set_rollers(127);
+	set_drive_pid(20, 0, 40, 0.4, 3);
+	drive_pid.resume();
+	wait_drive();
+
+	//Reset tray
+	set_tray(0);
+	tray_pid_task.resume();
+	set_tray_pid(0);
+
+	//Turn to face zone
+	drive_pid.suspend();
+	angle_pid.resume();
+	set_angle_pid(90, 80, 6);
+	wait_turn();
+	pros::delay(250);
+	angle_pid.suspend();
+
+	//Drive forward to zone
+	drive_pid.resume();
+	set_drive_pid(18, 90, 40, 0.4, 3);
+	wait_drive();
+
+	//Turn to face zone
+	drive_pid.suspend();
+	angle_pid.resume();
+	set_angle_pid(120, 80, 6);
+	wait_turn();
+	pros::delay(250);
+
+	//Outtake a little
+	while (get_cube_sensor()>LINE_SENSOR) {
+			set_rollers(-80);
+	}
+	set_rollers(0);
+	set_bottom_clamp(true);
+	pros::delay(250);
+
+	//Drive forward to zone
+	angle_pid.suspend();
+	drive_pid.resume();
+	set_drive_pid(10, 120, 30, 0.4, 3);
 	pros::delay(500);
 
-	//Undo clamps, top first
-	set_top_clamp(false);
-	pros::delay(200);
+	//Score stack
+	tray_pid_task.suspend();
+	while (get_tray_sensor()<TRAY_SLOW_DOWN) {
+		set_tray(TRAY_FAST_SPEED);
+	}
+	while(get_tray_sensor()<TRAY_SUPER_SLOW_DOWN) {
+		set_tray(TRAY_SLOW_SPEED);
+	}
+	while(get_tray_sensor()<TRAY_MAX) {
+		set_tray(TRAY_SUPER_SLOW_SPEED);
+	}
+	tray_pid_task.resume();
 	set_bottom_clamp(false);
+	set_tray_pid(4500);
+	set_rollers(-127);
 	pros::delay(500);
 
 	//Drive back
-	set_drive_pid(-12, 145, 50, 0.5, 0.1);
-	wait_drive();
-	pros::delay(250);
-	set_rollers(0);
-
-	//Bring tray back
+	set_drive_pid(-15, 120, 30, 0.4, 3);
+	pros::delay(500);
 	set_tray_pid(0);
-	pros::delay(1000);
+	wait_drive();
+	set_rollers(0);
+}
+
+void blue_3() {
+	reset_drive_sensor();
+
+	angle_calculate.resume();
+
+	//Hold arm and tray back
+	set_tray(TRAY_DOWN_POWER);
+	set_arm(ARM_DOWN_POWER);
+
+	//Intake and grab cubes
+	set_rollers(127);
+	set_drive_pid(20, 0, 40, 0.4, 3);
+	drive_pid.resume();
+	wait_drive();
+
+	//Reset tray
+	set_tray(0);
+	tray_pid_task.resume();
+	set_tray_pid(0);
+
+	//Turn to face zone
+	drive_pid.suspend();
+	angle_pid.resume();
+	set_angle_pid(-90, 80, 6);
+	wait_turn();
+	pros::delay(250);
+	angle_pid.suspend();
+
+	//Drive forward to zone
+	drive_pid.resume();
+	set_drive_pid(18, -90, 40, 0.4, 3);
+	wait_drive();
+
+	//Turn to face zone
+	drive_pid.suspend();
+	angle_pid.resume();
+	set_angle_pid(-120, 80, 6);
+	wait_turn();
+	pros::delay(250);
+
+	//Outtake a little
+	while (get_cube_sensor()>LINE_SENSOR) {
+			set_rollers(-80);
+	}
+	set_rollers(0);
+	set_bottom_clamp(true);
+	pros::delay(250);
+
+	//Drive forward to zone
+	angle_pid.suspend();
+	drive_pid.resume();
+	set_drive_pid(10, -120, 30, 0.4, 3);
+	pros::delay(500);
+
+	//Score stack
+	tray_pid_task.suspend();
+	while (get_tray_sensor()<TRAY_SLOW_DOWN) {
+		set_tray(TRAY_FAST_SPEED);
+	}
+	while(get_tray_sensor()<TRAY_SUPER_SLOW_DOWN) {
+		set_tray(TRAY_SLOW_SPEED);
+	}
+	while(get_tray_sensor()<TRAY_MAX) {
+		set_tray(TRAY_SUPER_SLOW_SPEED);
+	}
+	tray_pid_task.resume();
+	set_bottom_clamp(false);
+	set_tray_pid(4500);
+	set_rollers(-127);
+	pros::delay(500);
+
+	//Drive back
+	set_drive_pid(-15, -120, 30, 0.4, 3);
+	pros::delay(500);
+	set_tray_pid(0);
+	wait_drive();
+	set_rollers(0);
 }
 
 void
-blue() {
-	drive_pid.resume();
+blue_6() {
+	reset_drive_sensor();
+
 	angle_calculate.resume();
-	//angle_pid.resume();
 
-	//Push preload cube forward and drive back
-	set_drive_pid(9, 0, 50, 0.5, 0.1);
+	//Hold arm and tray back
+	set_tray(TRAY_DOWN_POWER);
+	set_arm(ARM_DOWN_POWER);
+
+	//Intake and grab cubes
+	set_rollers(127);
+	set_drive_pid(36, 0, 40, 0.4, 3);
+	drive_pid.resume();
 	wait_drive();
-	pros::delay(250);
 
-	set_drive_pid(-4, 0, 50, 0.5, 0.1);
-	wait_drive();
-	pros::delay(250);
-
-	//Unfold
-	arm_pid_task.resume();
-	tray_pid_task.resume();
-	set_arm_pid(700);
-	pros::delay(1000);
-	set_arm_pid(0);
-	set_tray_pid(0);
-	arm_pid_task.suspend();
-	tray_pid_task.suspend();
-	set_tray(-30);
-	pros::delay(150);
-	set_arm(-60);
-	pros::delay(750);
-	reset_arm_sensor();
+	//Reset tray
 	set_tray(0);
-	pros::delay(100);
-	reset_tray_sensor();
-	arm_pid_task.resume();
 	tray_pid_task.resume();
+	set_tray_pid(0);
 
-	//Drive forward to grab first row
-	set_drive_pid(35, 0, 30, 0.5, 0.1);
-	set_rollers(127);
-	wait_drive();
-	pros::delay(500);
-
-	//Drive back a little to prepare for turn
-	set_drive_pid(-12, 0, 40, 0.5, 0.1);
-	set_rollers(127);
-	wait_drive();
-	pros::delay(500);
-	set_rollers(7);
-
-	//Turn
+	//Turn to grab 6th cube
 	drive_pid.suspend();
 	angle_pid.resume();
-	set_angle_pid(-50, 100, 6);
+	set_angle_pid(-25, 80, 6);
 	wait_turn();
-	pros::delay(500);
+	pros::delay(250);
 	angle_pid.suspend();
 
-	//Drive back to get inline with the second row
-	set_drive_pid(-30, -50, 50, 0.9, 0.1);
+	//Intake and grab cubes
+	drive_pid.resume();
+	set_rollers(127);
+	set_drive_pid(8, -25, 30, 0.4, 3);
 	drive_pid.resume();
 	wait_drive();
-	pros::delay(250);
 
-	//Turn to face second row
+	//Turn to face 0 deg
 	drive_pid.suspend();
 	angle_pid.resume();
-	set_angle_pid(0, 100, 6);
+	set_angle_pid(0, 60, 6);
 	wait_turn();
-	pros::delay(500);
+	pros::delay(250);
 	angle_pid.suspend();
 
-	//Intake half of the cubes on second row
-	set_drive_pid(17, 0, 30, 0.9, 0.1);
-	set_rollers(127);
+	//Drive back a little
 	drive_pid.resume();
-	wait_drive();
-	pros::delay(750);
+	set_drive_pid(-36, 0, 60, 0.4, 3);
 
-	//Raise arm tiny bit
-	set_arm_pid(300);
-	pros::delay(500);
-
-	//Drive in a little bit
-	set_drive_pid(7, 0, 20, 0.9, 0.1);
-	while (get_cube_sensor()>1900) {
-			set_rollers(80);
-	}
-	set_rollers(50);
-	wait_drive();
-	pros::delay(250);
-
-	//Drive back a tiny bit
-	set_drive_pid(-7, 0, 30, 0.9, 0.1);
-	wait_drive();
-	pros::delay(500);
-	set_arm_pid(0);
-	pros::delay(500);
-
-	//Drive back a tiny bit
-	set_rollers(127);
-	set_drive_pid(23, 0, 30, 0.9, 0.1);
-	wait_drive();
-	pros::delay(1500);
-
-	//Bring cubes down
-	while (get_cube_sensor()>1900) {
-			set_rollers(-40);
+	while (get_cube_sensor()>LINE_SENSOR) {
+			set_rollers(-80);
 	}
 	set_rollers(0);
 	set_bottom_clamp(true);
-	set_top_clamp(true);
 	pros::delay(150);
 
-	//Bring tray up a little
-	set_tray_pid(1500);
-	pros::delay(1500);
+	wait_drive();
+	pros::delay(250);
+	set_rollers(-7);
 
 	//Turn to face zone
 	drive_pid.suspend();
 	angle_pid.resume();
-	set_angle_pid(-145, 80, 6);
+	set_angle_pid(110, 60, 6);
 	wait_turn();
-	pros::delay(750);
+	pros::delay(250);
 	angle_pid.suspend();
 
-	//Drive to zone
-	set_drive_pid(40, -145, 50, 0.4, 3);
-	drive_pid.resume();
-	wait_drive();
-	pros::delay(500);
-
-	//Center with zone
-	set_drive_pid(12, -145, 20, 0.4, 3);
-	pros::delay(1500);
+	//Drive to the zone
+	set_tank(60, 40);
+	pros::delay(750);
+	set_tank(20, 20);
 
 	//Score stack
 	tray_pid_task.suspend();
-	while (get_tray_sensor()<2100) {
-			set_tray(127);
+	while (get_tray_sensor()<TRAY_SLOW_DOWN) {
+		set_tray(TRAY_FAST_SPEED);
 	}
-	while (get_tray_sensor()<4200){
-			set_rollers(-15);
-			set_tray(60);
+	while(get_tray_sensor()<TRAY_SUPER_SLOW_DOWN) {
+		set_tray(TRAY_SLOW_SPEED);
 	}
-	set_tray_pid(4200);
+	while(get_tray_sensor()<TRAY_MAX) {
+		set_tray(TRAY_SUPER_SLOW_SPEED);
+	}
 	tray_pid_task.resume();
-	pros::delay(500);
-
-	//Undo clamps, top first
-	set_top_clamp(false);
-	pros::delay(200);
+	set_tray_pid(4500);
 	set_bottom_clamp(false);
-	pros::delay(500);
-
-	//Drive back
-	set_drive_pid(-12, -145, 50, 0.5, 0.1);
-	wait_drive();
+	set_tank(-10, -10);
 	pros::delay(250);
-	set_rollers(0);
+	set_rollers(-127);
+	pros::delay(250);
 
-	//Bring tray back
+	//Back up
+	set_tank(-127, -127);
+	pros::delay(250);
 	set_tray_pid(0);
-	pros::delay(1000);
+	set_tank(-10, -10);
+	pros::delay(500);
+	set_tank(0, 0);
 }
 
-
 void autonomous() {
-	reset_drive_sensor();
- /*
-	angle_calculate.resume();
-	angle_pid.resume();
-	pros::delay(200);
-	set_angle_pid(45, 100, 5);
-	wait_turn();
-	pros::delay(750);
-	*/
+	if (auton == R3)
+		red_3();
 
-	blue();
+	if (auton == R6)
+		red_6();
+
+	if (auton == B3)
+		blue_3();
+
+	if (auton == B6)
+		blue_6();
 }
 
 void opcontrol() {
@@ -404,360 +465,11 @@ void opcontrol() {
 
 	tray_controller.resume();
 	tray_pid_task.resume();
-	//arm_pid_task.resume();
 	arm_controller.resume();
 	while (true) {
 		set_tank(master.get_analog(ANALOG_LEFT_Y), master.get_analog(ANALOG_RIGHT_Y));
 		roller_control();
 
-		pros::lcd::print(2, "left encoder: %i", get_left_drive_sensor());
-		pros::lcd::print(3, "right encoder: %i", get_right_drive_sensor());
-
 		pros::delay(20);
 	}
 }
-
-
-/*
-
-void
-red() {
-    drive_pid.resume();
-    angle_calculate.resume();
-    //angle_pid.resume();
-
-    //Push preload cube forward and drive back
-    set_drive_pid(9, 0, 50, 0.5, 0.1);
-    wait_drive();
-    pros::delay(250);
-
-    set_drive_pid(-4, 0, 50, 0.5, 0.1);
-    wait_drive();
-    pros::delay(250);
-
-    //Unfold
-    arm_pid_task.resume();
-    tray_pid_task.suspend();
-    set_tray(10);
-    set_arm_pid(700);
-    pros::delay(1000);
-    tray_pid_task.resume();
-    set_tray_pid(1200);
-    pros::delay(600);
-    arm_pid_task.resume();
-    set_arm_pid(300);
-    pros::delay(300);
-    set_arm_pid(0);
-    set_tray_pid(0);
-    pros::delay(1400);
-    arm_pid_task.suspend();
-    tray_pid_task.suspend();
-    set_tray(-30);
-    pros::delay(150);
-    set_arm(-50);
-    pros::delay(750);
-    reset_arm_sensor();
-    set_tray(0);
-    pros::delay(100);
-    reset_tray_sensor();
-    arm_pid_task.resume();
-    tray_pid_task.resume();
-
-    //Drive forward to grab first row
-    set_drive_pid(39, 0, 30, 0.5, 0.1);
-    set_rollers(127);
-    wait_drive();
-    pros::delay(500);
-
-    //Drive back a little to prepare for turn
-    set_drive_pid(-18, 0, 40, 0.5, 0.1);
-    set_rollers(127);
-    wait_drive();
-    pros::delay(500);
-    set_rollers(7);
-
-
-    //Turn
-    drive_pid.suspend();
-    angle_pid.resume();
-    set_angle_pid(-52, 100, 6);
-    wait_turn();
-    pros::delay(100);
-    angle_pid.suspend();
-
-    //Drive back to get inline with the second row
-    set_drive_pid(-29, -52, 50, 0.9, 0.1);
-    drive_pid.resume();
-    wait_drive();
-    pros::delay(250);
-
-    //Turn to face second row
-    drive_pid.suspend();
-    angle_pid.resume();
-    set_angle_pid(4, 100, 6);
-    wait_turn();
-    pros::delay(100);
-    angle_pid.suspend();
-
-    //Intake cubes on second row
-    set_drive_pid(40, 4, 30, 0.9, 0.1);
-    set_rollers(127);
-    drive_pid.resume();
-    wait_drive();
-    pros::delay(500);
-
-    //Drive back a little
-    set_drive_pid(-24, 4, 50, 0.5, 0.1);
-    wait_drive();
-    pros::delay(250);
-
-    //Outtake until rollers hit line sensor
-    set_rollers(127);
-    pros::delay(1000);
-    set_rollers(7);
-    pros::delay(500);
-
-    while (get_cube_sensor()>1900) {
-        set_rollers(-40);
-    }
-    set_rollers(0);
-    set_bottom_clamp(true);
-    set_top_clamp(true);
-    pros::delay(150);
-
-    //Move tray a little
-    set_tray_pid(1500);
-    pros::delay(1000);
-
-    //Turn to face zone
-    drive_pid.suspend();
-    angle_pid.resume();
-    set_angle_pid(135, 50, 6);
-    wait_turn();
-    set_rollers(7);
-    pros::delay(100);
-    angle_pid.suspend();
-
-    //Drive almost to zone
-    set_drive_pid(12, 135, 50, 0.5, 0.1);
-    drive_pid.resume();
-    wait_drive();
-    pros::delay(250);
-    set_rollers(0);
-
-    //Compoete drive to zone
-    set_drive_pid(12, 135, 30, 0.5, 0.1);
-    pros::delay(750);
-
-    //Score stack
-    tray_pid_task.suspend();
-    while (get_tray_sensor()<2100) {
-        set_tray(127);
-    }
-    while (get_tray_sensor()<4200){
-        set_rollers(-15);
-        set_tray(60);
-    }
-    set_tray_pid(4200);
-    tray_pid_task.resume();
-    pros::delay(500);
-
-    //Undo clamps, top first
-    set_top_clamp(false);
-    pros::delay(200);
-    set_bottom_clamp(false);
-    pros::delay(500);
-
-    //Drive back
-    set_drive_pid(-42, 135, 50, 0.5, 0.1);
-    wait_drive();
-    pros::delay(250);
-    set_rollers(0);
-
-    //Turn to face stacks
-    drive_pid.suspend();
-    angle_pid.resume();
-    set_angle_pid(-70, 50, 6);
-    wait_turn();
-    pros::delay(100);
-    angle_pid.suspend();
-
-    //Drive forward a little
-    set_drive_pid(24, -70, 50, 0.5, 0.1);
-    drive_pid.resume();
-    set_tray_pid(0);
-    wait_drive();
-    pros::delay(250);
-}
-
-void
-blue() {
-    drive_pid.resume();
-    angle_calculate.resume();
-    //angle_pid.resume();
-
-    //Push preload cube forward and drive back
-    set_drive_pid(9, 0, 50, 0.5, 0.1);
-    wait_drive();
-    pros::delay(250);
-
-    set_drive_pid(-4, 0, 50, 0.5, 0.1);
-    wait_drive();
-    pros::delay(250);
-
-    //Unfold
-    arm_pid_task.resume();
-    tray_pid_task.suspend();
-    set_tray(10);
-    set_arm_pid(700);
-    pros::delay(1000);
-    tray_pid_task.resume();
-    set_tray_pid(1200);
-    pros::delay(600);
-    arm_pid_task.resume();
-    set_arm_pid(300);
-    pros::delay(300);
-    set_arm_pid(0);
-    set_tray_pid(0);
-    pros::delay(1400);
-    arm_pid_task.suspend();
-    tray_pid_task.suspend();
-    set_tray(-30);
-    pros::delay(150);
-    set_arm(-50);
-    pros::delay(750);
-    reset_arm_sensor();
-    set_tray(0);
-    pros::delay(100);
-    reset_tray_sensor();
-    arm_pid_task.resume();
-    tray_pid_task.resume();
-
-    //Drive forward to grab first row
-    set_drive_pid(39, 0, 30, 0.5, 0.1);
-    set_rollers(127);
-    wait_drive();
-    pros::delay(500);
-
-    //Drive back a little to prepare for turn
-    set_drive_pid(-18, 0, 40, 0.5, 0.1);
-    set_rollers(127);
-    wait_drive();
-    pros::delay(500);
-    set_rollers(7);
-
-
-    //Turn
-    drive_pid.suspend();
-    angle_pid.resume();
-    set_angle_pid(52, 100, 6);
-    wait_turn();
-    pros::delay(100);
-    angle_pid.suspend();
-
-    //Drive back to get inline with the second row
-    set_drive_pid(-32, 52, 50, 0.9, 0.1);
-    drive_pid.resume();
-    wait_drive();
-    pros::delay(250);
-
-    //Turn to face second row
-    drive_pid.suspend();
-    angle_pid.resume();
-    set_angle_pid(4, 100, 6);
-    wait_turn();
-    pros::delay(100);
-    angle_pid.suspend();
-
-    //Intake cubes on second row
-    set_drive_pid(40, -4, 30, 0.9, 0.1);
-    set_rollers(127);
-    drive_pid.resume();
-    wait_drive();
-    pros::delay(500);
-
-    //Drive back a little
-    set_drive_pid(-24, -4, 50, 0.5, 0.1);
-    wait_drive();
-    pros::delay(250);
-
-    //Outtake until rollers hit line sensor
-    set_rollers(127);
-    pros::delay(1000);
-    set_rollers(7);
-    pros::delay(500);
-
-    while (get_cube_sensor()>1900) {
-        set_rollers(-40);
-    }
-    set_rollers(0);
-    set_bottom_clamp(true);
-    set_top_clamp(true);
-    pros::delay(150);
-
-    //Move tray a little
-    set_tray_pid(1500);
-    pros::delay(1000);
-
-    //Turn to face zone
-    drive_pid.suspend();
-    angle_pid.resume();
-    set_angle_pid(-135, 50, 6);
-    wait_turn();
-    set_rollers(7);
-    pros::delay(100);
-    angle_pid.suspend();
-
-    //Drive almost to zone
-    set_drive_pid(12, -135, 50, 0.5, 0.1);
-    drive_pid.resume();
-    wait_drive();
-    pros::delay(250);
-    set_rollers(0);
-
-    //Compoete drive to zone
-    set_drive_pid(12, -135, 30, 0.5, 0.1);
-    pros::delay(750);
-
-    //Score stack
-    tray_pid_task.suspend();
-    while (get_tray_sensor()<2100) {
-        set_tray(127);
-    }
-    while (get_tray_sensor()<4200){
-        set_rollers(-15);
-        set_tray(60);
-    }
-    set_tray_pid(4200);
-    tray_pid_task.resume();
-    pros::delay(500);
-
-    //Undo clamps, top first
-    set_top_clamp(false);
-    pros::delay(200);
-    set_bottom_clamp(false);
-    pros::delay(500);
-
-    //Drive back
-    set_drive_pid(-42, -135, 50, 0.5, 0.1);
-    wait_drive();
-    pros::delay(250);
-    set_rollers(0);
-
-    //Turn to face stacks
-    drive_pid.suspend();
-    angle_pid.resume();
-    set_angle_pid(70, 50, 6);
-    wait_turn();
-    pros::delay(100);
-    angle_pid.suspend();
-
-    //Drive forward a little
-    set_drive_pid(24, 70, 50, 0.5, 0.1);
-    drive_pid.resume();
-    set_tray_pid(0);
-    wait_drive();
-    pros::delay(250);
-}
-
-*/

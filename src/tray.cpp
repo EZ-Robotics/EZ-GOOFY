@@ -1,15 +1,5 @@
 #include "main.h"
 
-//Variables for tray
-// - tray uses TRAY_FAST_SPEED until it reaches TRAY_SLOW_DOWN
-// - then it uses TRAY_SLOW_DOWN until it reaches TAY_MAX and stops it from going farther
-#define TAY_MAX          4500 //Max position of tray
-#define TRAY_SLOW_DOWN   2000 //Position for the tray to go slow
-#define TRAY_SLOW_SPEED  50   //Slow speed
-#define TRAY_FAST_SPEED  127  //Fast speed
-#define TRAY_SUPER_SLOW_DOWN 3300
-#define TRAY_SUPER_SLOW_SPEED 30
-
 //Motor initialize
 pros::Motor tray(8);
 pros::ADIDigitalOut bottom_clamp(2);
@@ -89,7 +79,7 @@ tray_control(void*) {
     }
 
     //Reset tray to 0
-    if (master.get_digital(DIGITAL_Y) && !check_shift()) {
+    if (master.get_digital(DIGITAL_Y)) {
       //tray_pid_task.resume();
       arm_state = 0;
       while (get_arm_sensor()>950) {
@@ -123,7 +113,8 @@ tray_control(void*) {
       //pros::delay(100);
       set_bottom_clamp(a==1?false:true);
       if (arm_state != 1)
-        set_top_clamp(a==1?false:true);
+        //set_top_clamp(a==1?false:true);
+        set_top_clamp(false);
       if (get_tray_sensor()<TRAY_SLOW_DOWN) {
         set_tray(TRAY_FAST_SPEED);
       } else if (get_tray_sensor()<TRAY_SUPER_SLOW_DOWN) {
@@ -162,14 +153,14 @@ tray_control(void*) {
       tray_pid_task.resume();
       tray_target = 0;
     }
-    //Hold the tray where it is when you let go of a button, and make sure it can't go past TAY_MAX or 0
+    //Hold the tray where it is when you let go of a button, and make sure it can't go past TRAY_MAX or 0
     else {
       a=0;
       if (!is_pid) {
         tray_pid_task.resume();
         is_pid = true;
       } else {
-        tray_target = tray_target < 0 ? 0 : (tray_target > TAY_MAX ? TAY_MAX : tray_target);
+        tray_target = tray_target < 0 ? 0 : (tray_target > TRAY_MAX ? TRAY_MAX : tray_target);
         set_tray_pid(tray_target);
       }
     }
