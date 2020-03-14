@@ -27,7 +27,7 @@ const int ACTIVE_ARM_DOWN  = -45;
 ////////////////
 // - tray uses TRAY_FAST_SPEED until it reaches TRAY_SLOW_DOWN
 // - then it uses TRAY_SLOW_DOWN until it reaches TAY_MAX and stops it from going farther
-const int TRAY_MAX							  = 4500; //Max position of tray
+const int TRAY_MAX						  = 4500; //Max position of tray
 const int TRAY_SLOW_DOWN 			  = 2000; //Position for the tray to go slow
 const int TRAY_SUPER_SLOW_DOWN  = 3300; //Poisition for tray super slow
 const int TRAY_FAST_SPEED       = 127;  //Fast speed
