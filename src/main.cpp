@@ -37,9 +37,9 @@ const int TRAY_SUPER_SLOW_SPEED = 30;   //Slow speed
 ////////////////
 //  ROLLER VARIABLES
 ////////////////
-const int ROLLER_TIMEOUT 		= 250; //Timeout for rollers when bringing a cube into the intake
+const int ROLLER_TIMEOUT    = 250; //Timeout for rollers when bringing a cube into the intake
 const int SLOW_ROLLER_SPEED = 60;  //Speed for rollers for slow intake button
-const int PASSIVE_POWER 		= 7;   //Power set to rollers when nothing is being done to hold cubes in
+const int PASSIVE_POWER     = 7;   //Power set to rollers when nothing is being done to hold cubes in
 
 pros::ADIAnalogIn auton_select(7);
 const int R6 = 1;
